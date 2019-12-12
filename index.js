@@ -4,27 +4,41 @@ const tc = require('@actions/tool-cache');
 const process = require("process");
 async function run() {
     try {
-        let os;
-        switch (process.env.RUNNER_OS) {
+        let os = process.env.RUNNER_OS;
+        let porterUrl;
+        switch (os) {
             case "Windows":
-                os = "windows"
+                porterURL = `https://cdn.deislabs.io/porter/latest/install-windows.ps1`;
                 break;
             case "MacOS":
-                os = "mac"
+                porterURL = `https://cdn.deislabs.io/porter/latest/install-mac.sh`;
                 break;
             case "Linux":
-                os = "linux"
+                porterURL = `https://cdn.deislabs.io/porter/latest/install-linux.sh`;
                 break;
             default:
-                throw `Unknown OS: ${process.env.RUNNER_OS}`;
+                throw `Unknown OS: ${os}`;
         }
 
-        const porterURL = `https://cdn.deislabs.io/porter/latest/install-${os}.sh`;
         console.log(`Downloading Porter from ${porterURL}`);
         const porterInstallPath = await tc.downloadTool(`${porterURL}`);
-        await exec.exec(`chmod`, [`+x`, `${porterInstallPath}`]);
-        await exec.exec(`bash`, [`-c`, `${porterInstallPath}`]);
-        core.addPath("/home/runner/.porter");
+
+        switch (os) {
+            case "Windows":
+                await exec.exec(`pwsh`, [`-f`, `${porterInstallPath}`]);
+                core.addPath(`${process.env.USERPROFILE}/.porter`);
+                break;
+            case "MacOS":
+            case "Linux":
+                await exec.exec(`chmod`, [`+x`, `${porterInstallPath}`]);
+                await exec.exec(`bash`, [`-c`, `${porterInstallPath}`]);
+                core.addPath("/home/runner/.porter");
+                break;
+            default:
+                throw `Unknown OS: ${os}`;
+        }
+
+
     } catch (error) {
         core.setFailed(error.message);
     }
